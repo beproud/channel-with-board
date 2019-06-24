@@ -18,14 +18,14 @@ EXCLUDE_MEMBERS = (
 BOARD_MEMBERS = ('haru', 'takanory', 'shimizukawa')
 
 
-def main():
+def generate_bpmember_list(members):
+    """
+    Slackの前メンバーから、BPメンバーとボードの一覧を抜き出す
+    """
     bp_members = []
     board_members = []
-    client = slack.WebClient(token=os.environ['SLACK_API_TOKEN'])
-    response = client.users_list()
-    for member in response['members']:
-        # breakpoint()
 
+    for member in members:
         # Bot、削除されたメンバー、Guestは対象外
         if member['is_bot'] or member['deleted'] or member['is_restricted'] or member['is_ultra_restricted']:
             continue
@@ -45,10 +45,53 @@ def main():
         else:
             # それ以外はBPメンバー
             bp_members.append(member)
+    return bp_members, board_members
+
+
+def create_channel(client, member, board_members):
+    """チャンネルを作成する
+
+    * https://api.slack.com/methods/groups.create
+    * https://api.slack.com/methods/groups.invite
+    * https://api.slack.com/methods/groups.setTopic
+    * https://api.slack.com/methods/groups.setPurpose
+    """
+    channel_name = f'u-{member}-board'
+    response = client.groups_create(name=channel_name)
+    channel_id = response['group']['id']
+
+    # boardメンバーを追加
+    for board in board_members:
+        if board['name'] != 'takanory':
+            client.groups_invite(channel=channel_id, user=board['id'])
+
+    # topicとpurposeを設定
+    client.groups_setTopic(channel=channel_id, topic='topicてすと')
+    client.groups_setPurpose(channel=channel_id, purpose='purposeもくてき')
+
+    print(channel_name, channel_id)
+
+
+def main():
+    client = slack.WebClient(token=os.environ['SLACK_API_TOKEN'])
+
+    # メンバー一覧を取得
+    # https://api.slack.com/methods/users.list
+    response = client.users_list()
+    bp_members, board_members = generate_bpmember_list(response['members'])
 
     print(len(board_members))
     print(len(bp_members))
 
+    # チャンネルを作成する
+    #for member in bp_members:
+    #    create_channel(client, member, board_members)
 
+    # チャンネルを作成する
+    for member in ['test']:
+        create_channel(client, member, board_members)
+
+
+        
 if __name__ == '__main__':
     main()
