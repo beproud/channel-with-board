@@ -56,20 +56,40 @@ def create_channel(client, member, board_members):
     * https://api.slack.com/methods/groups.setTopic
     * https://api.slack.com/methods/groups.setPurpose
     """
-    channel_name = f'u-{member}-board'
+
+    # 名前を取得
+    name = member['profile']['display_name']
+    if name:
+        # 記号を削除
+        name = name.replace('-', '').replace('_', '')
+    else:
+        name = member['name']
+
+    # チャンネル名、トピック
+    channel_name = f'u-{name}-board'
+    topic = f'{name}とboardの連絡用チャンネル'
+
+    # テスト用に3名に限定
+    if name not in ('fumi23', 'masashinji', 'imaxyz'):
+        return
+
     response = client.groups_create(name=channel_name)
-    channel_id = response['group']['id']
+    # チャンネルの作成に成功
+    if response['ok']:
+        channel_id = response['group']['id']
 
-    # boardメンバーを追加
-    for board in board_members:
-        if board['name'] != 'takanory':
-            client.groups_invite(channel=channel_id, user=board['id'])
+        # メンバーを追加
+        client.groups_invite(channel=channel_id, user=member['id'])
+   
+        # boardメンバーを追加
+        for board in board_members:
+            if board['name'] != 'takanory':
+                client.groups_invite(channel=channel_id, user=board['id'])
 
-    # topicとpurposeを設定
-    client.groups_setTopic(channel=channel_id, topic='topicてすと')
-    client.groups_setPurpose(channel=channel_id, purpose='purposeもくてき')
+        # topicとpurposeを設定
+        client.groups_setTopic(channel=channel_id, topic=topic)
 
-    print(channel_name, channel_id)
+        print(f'{channel_name} を作成しました')
 
 
 def main():
@@ -80,18 +100,13 @@ def main():
     response = client.users_list()
     bp_members, board_members = generate_bpmember_list(response['members'])
 
-    print(len(board_members))
-    print(len(bp_members))
+    # print(len(board_members))
+    # print(len(bp_members))
 
     # チャンネルを作成する
-    #for member in bp_members:
-    #    create_channel(client, member, board_members)
-
-    # チャンネルを作成する
-    for member in ['test']:
+    for member in bp_members:
         create_channel(client, member, board_members)
 
 
-        
 if __name__ == '__main__':
     main()
