@@ -86,10 +86,6 @@ def create_channel(client, member, board_members, channels):
     channel_name = f'u-{name}-board'
     topic = f'{name}とboardの連絡用チャンネル'
 
-    # テスト用に3名に限定
-    if name not in ('fumi23', 'masashinji', 'imaxyz'):
-        return
-
     if channel_name in channels:
         print(f'チャンネル {channel_name} はすでに存在します')
     else:
