@@ -82,9 +82,12 @@ def create_channel(client, member, board_members, channels):
     else:
         name = member['name']
 
+    if name not in ('fumi23', 'imaxyz'):
+        return
+
     # チャンネル名、トピック
     channel_name = f'u-{name}-board'
-    topic = f'{name}とboardの連絡用チャンネル'
+    topic = f'{name}とboardの雑談ちゃんねる https://project.beproud.jp/redmine/projects/bpall/wiki/With-board'
 
     if channel_name in channels:
         print(f'チャンネル {channel_name} はすでに存在します')
