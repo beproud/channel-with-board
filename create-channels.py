@@ -108,6 +108,9 @@ def create_channel(client, member, board_members, channels, dryrun=False):
             # topicを設定
             client.conversations_setTopic(channel=channel_id, topic=topic)
 
+            # メッセージを送信
+            msg = f'このチャンネルは *{name}とboardの雑談ちゃんねる* です。役員と雑談したり、個人的なことを気軽に相談したりしてください :party_parrot:\n詳しくはトピックに設定してあるリンクをクリックしてください :bow:'
+            client.chat_postMessage(channel=channel_id, text=msg)
             print(f'{channel_name} を作成しました')
 
 
