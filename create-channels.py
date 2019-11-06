@@ -2,6 +2,7 @@
 boardとの連絡チャンネルを作るスクリプト
 """
 
+import argparse
 import os
 
 import slack
@@ -111,6 +112,12 @@ def create_channel(client, member, board_members, channels, dryrun=False):
 
 
 def main():
+    # --dryrun引数に対応
+    parser = argparse.ArgumentParser(
+        description='Create Slack channel with board.')
+    parser.add_argument('--dryrun', help='dry run', action='store_true')
+    args = parser.parse_args()
+
     client = slack.WebClient(token=os.environ['SLACK_API_TOKEN'])
 
     # メンバー一覧を取得
@@ -123,7 +130,7 @@ def main():
 
     # チャンネルを作成する
     for member in bp_members:
-        create_channel(client, member, board_members, channels, True)
+        create_channel(client, member, board_members, channels, args.dryrun)
 
 
 if __name__ == '__main__':
