@@ -13,7 +13,7 @@ EXCLUDE_MEMBERS = (
     'shinichitsuchiya', 'kuwai', 'yosuke', 'tsuyoshi', 'nishio',
     'kentaro_shima', 'checkroth', 'oshima', 'xiao669', 'atsushi_suzuki',
     'hit-kumada', 'hit-hata', 'fujita', 'kw_park', 'soojin',
-    'takeru.furuse',
+    'takeru.furuse', 'ArakiRyotaro',
 )
 BOARD_MEMBERS = ('haru', 'takanory', 'shimizukawa')
 
@@ -61,7 +61,7 @@ def get_private_channels(client):
     return {ch['name'] for ch in chs if ch['name'].startswith('u-')}
 
 
-def create_channel(client, member, board_members, channels):
+def create_channel(client, member, board_members, channels, dryrun=False):
     """チャンネルを作成する
 
     * https://api.slack.com/methods/conversations.create
@@ -82,31 +82,32 @@ def create_channel(client, member, board_members, channels):
     else:
         name = member['name']
 
-    if name not in ('fumi23', 'imaxyz'):
-        return
-
     # チャンネル名、トピック
-    channel_name = f'u-{name}-board'
+    channel_name = f'u-{name.lower()}-board'
     topic = f'{name}とboardの雑談ちゃんねる https://project.beproud.jp/redmine/projects/bpall/wiki/With-board'
 
     if channel_name in channels:
         print(f'チャンネル {channel_name} はすでに存在します')
     else:
-        response = client.conversations_create(name=channel_name,
-                                               is_private=True)
-        channel_id = response['channel']['id']
+        if dryrun:
+            # dryrunの場合はメッセージのみを出力する
+            print(f'{channel_name} を作成しました(dry run)')
+        else:
+            response = client.conversations_create(name=channel_name,
+                                                   is_private=True)
+            channel_id = response['channel']['id']
 
-        # メンバーとboardメンバーのIDリストを作成して追加
-        users = [member['id']]
-        for board in board_members:
-            if board['name'] != 'takanory':
-                users.append(board['id'])
-        client.conversations_invite(channel=channel_id, users=users)
+            # メンバーとboardメンバーのIDリストを作成して追加
+            users = [member['id']]
+            for board in board_members:
+                if board['name'] != 'takanory':
+                    users.append(board['id'])
+            client.conversations_invite(channel=channel_id, users=users)
 
-        # topicを設定
-        client.conversations_setTopic(channel=channel_id, topic=topic)
+            # topicを設定
+            client.conversations_setTopic(channel=channel_id, topic=topic)
 
-        print(f'{channel_name} を作成しました')
+            print(f'{channel_name} を作成しました')
 
 
 def main():
@@ -120,12 +121,9 @@ def main():
     # チャンネル一覧を取得
     channels = get_private_channels(client)
 
-    # print(len(board_members))
-    # print(len(bp_members))
-
     # チャンネルを作成する
     for member in bp_members:
-        create_channel(client, member, board_members, channels)
+        create_channel(client, member, board_members, channels, True)
 
 
 if __name__ == '__main__':
