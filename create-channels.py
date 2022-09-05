@@ -1,27 +1,27 @@
 """
-boardとの連絡チャンネルを作るスクリプト
+boardとの連絡チャンネルをアーカイブして作り直すスクリプト
 """
 
 import argparse
 import os
 
-import slack
+from slack_sdk import WebClient
 
 
-# 除外メンバーとボードメンバーの一覧
-EXCLUDE_MEMBERS = (
-    'slackbot', 'aodag', 'opapy', 'tokibito', 'ikasamt', 'crohaco',
-    'shinichitsuchiya', 'kuwai', 'yosuke', 'tsuyoshi', 'nishio',
-    'kentaro_shima', 'checkroth', 'oshima', 'xiao669', 'atsushi_suzuki',
-    'hit-kumada', 'hit-hata', 'fujita', 'kw_park', 'soojin',
-    'takeru.furuse', 'ArakiRyotaro',
+# BPメンバーの一覧
+BP_MEMBERS = (
+    "shimizukawa tommy ae35 altnight tell-k cafistar ray monjudoh natsu"
+    "cactusman kk6 nakagami kyoka hydden aoki marippe wan kameko xiao"
+    "furi susumuis kashew mtb_beta nao_y fumi23 tsutomu furuta kai"
+    "konie hirayama hajimo masashinji imaxyz komo_fr ssh22 kemu yukie"
+    "nutty hayaosuzuki delhi09 chieko arty saito"
 )
-BOARD_MEMBERS = ('haru', 'takanory', 'shimizukawa')
+BOARD_MEMBERS = ('haru', 'takanory', '923', 'nana')
 
 
 def generate_bpmember_list(members):
     """
-    Slackの前メンバーから、BPメンバーとボードの一覧を抜き出す
+    Slackの全メンバーから、BPメンバーとボードの一覧を抜き出す
     """
     bp_members = []
     board_members = []
@@ -121,19 +121,22 @@ def main():
     parser.add_argument('--dryrun', help='dry run', action='store_true')
     args = parser.parse_args()
 
-    client = slack.WebClient(token=os.environ['SLACK_API_TOKEN'])
+    client = WebClient(token=os.environ['SLACK_API_TOKEN'])
 
     # メンバー一覧を取得
     # https://api.slack.com/methods/users.list
     response = client.users_list()
     bp_members, board_members = generate_bpmember_list(response['members'])
+    for member in bp_members:
+        print(member["name"])
+    #print(board_members)
 
     # チャンネル一覧を取得
-    channels = get_private_channels(client)
+    #channels = get_private_channels(client)
 
     # チャンネルを作成する
-    for member in bp_members:
-        create_channel(client, member, board_members, channels, args.dryrun)
+    #for member in bp_members:
+    #    create_channel(client, member, board_members, channels, args.dryrun)
 
 
 if __name__ == '__main__':

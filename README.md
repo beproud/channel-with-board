@@ -7,10 +7,10 @@
 
 ## 環境構築
 
-* [slackclient](https://pypi.org/project/slackclient/) に依存(する予定)
+* [Python Slack SDK](https://slack.dev/python-slack-sdk/) に依存
 
 ```sh
-$ python3.7 -m venv env
+$ python3.10 -m venv env
 $ . env/bin/activate
 (env) $ pip install -r requirements.txt
 ```
