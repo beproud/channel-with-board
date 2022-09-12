@@ -8,46 +8,30 @@ import os
 from slack_sdk import WebClient
 
 
-def generate_bpmember_list(members):
-    """
-    Slackの全メンバーから、BPメンバーとボードの一覧を抜き出す
-    """
-    bp_members = []
-    board_members = []
+def get_userids_by_usergroup(client: WebClient, handle: str) -> list[str] | None:
+    """指定されたユーザーグループのユーザー一覧を返す
 
-    for member in members:
-        # Bot、削除されたメンバー、Guestは対象外
-        if member['is_bot'] or member['deleted'] or member['is_restricted'] or member['is_ultra_restricted']:
-            continue
-
-        # 名前を取得
-        name = member['name']
-        profile = member['profile']
-        dname = profile['display_name'] or profile['real_name']
-
-        # 除外メンバーは対象外
-        if name in EXCLUDE_MEMBERS or dname in EXCLUDE_MEMBERS:
-            continue
-
-        # ボードメンバーを取り出す
-        if name in BOARD_MEMBERS or dname in BOARD_MEMBERS:
-            board_members.append(member)
-        else:
-            # それ以外はBPメンバー
-            bp_members.append(member)
-    return bp_members, board_members
-
-
-def get_users(client, group_id: str) -> list[str]:
-    """指定されたユーザーグループのメンバー一覧を返す
-
+    * https://api.slack.com/methods/usergroups.list
     * https://api.slack.com/methods/usergroups.users.list
+
+    handle: ユーザーグループのメンションに使用する文字列(employees, board等)
     """
-    data = client.usergroups_users_list(usergroup=group_id)
-    return data["users"]
+
+    userids = None
+
+    # ユーザーグループの一覧を取得
+    groups = client.usergroups_list()
+    for group in groups["usergroups"]:
+        if group["handle"] == handle:
+            # ユーザーグループ内のユーザーIDのリスト
+            data = client.usergroups_users_list(usergroup=group["id"])
+            userids = data["users"]
+            break
+
+    return userids
 
 
-def get_u_private_channels(client) -> dict[str, str]:
+def get_u_private_channels(client: WebClient) -> dict[str, str]:
     """u-NAME-board 形式のprivateチャンネル一覧を取得
 
     * https://api.slack.com/methods/conversations.list
@@ -64,30 +48,45 @@ def get_u_private_channels(client) -> dict[str, str]:
     return channels
 
 
-def create_channel(client, member, board_members, channels, dryrun=False):
+def create_channel(client: WebClient, member: dict, board: list[str],
+                   channels: dict[str, str], dryrun=True):
     """チャンネルを作成する
 
+    * https://api.slack.com/methods/conversations.archive
     * https://api.slack.com/methods/conversations.create
     * https://api.slack.com/methods/conversations.invite
     * https://api.slack.com/methods/conversations.setTopic
 
-    :param client: Slack client
-    :param member: チャンネル作成対象のメンバー
-    :param board_members: boardのメンバー情報一覧
-    :param channels: u- から始まるチャンネル名のセット
+    :param client: Slack WebClient
+    :param member: チャンネル作成対象のメンバー情報
+    :param board: boardのユーザーID一覧
+    :param channels: 既存のu-NAME-boardチャンネル名とIDの辞書
     """
 
     # 名前を取得
-    name = member['profile']['display_name']
-    if name:
-        # 記号を削除
-        name = name.replace('-', '').replace('_', '')
-    else:
-        name = member['name']
+    name = member["profile"]["display_name"]
+    if not name:
+        name = member["name"]
+
+    # 休みの表記があれば削除
+    if "(" in name:
+        name = name.split("(")[0]
+
+    # チャンネル名を作成
+    simple_name = name.replace('-', '').replace('_', '')
+    channel_name = f"u-{simple_name.lower()}-board"
 
     # チャンネル名、トピック
-    channel_name = f'u-{name.lower()}-board'
-    topic = f'{name}とboardの雑談ちゃんねる https://project.beproud.jp/redmine/projects/bpall/wiki/With-board'
+    topic = (
+        f"{name}とboardの雑談ちゃんねる "
+        "https://project.beproud.jp/redmine/projects/bpall/wiki/With-board"
+    )
+
+    print(channel_name)
+    print(topic)
+    print(channels[channel_name])
+    
+    return
 
     if channel_name in channels:
         print(f'チャンネル {channel_name} はすでに存在します')
@@ -115,6 +114,7 @@ def create_channel(client, member, board_members, channels, dryrun=False):
             client.chat_postMessage(channel=channel_id, text=msg)
             print(f'{channel_name} を作成しました')
 
+
 def main():
     # --dryrun引数に対応
     parser = argparse.ArgumentParser(
@@ -124,25 +124,32 @@ def main():
 
     client = WebClient(token=os.environ['SLACK_API_TOKEN'])
 
-    # ユーザーグループの一覧を取得
-    # https://api.slack.com/methods/usergroups.list
-    groups = client.usergroups_list()
-    for group in groups["usergroups"]:
-        if group["handle"] == "employees":
-            employees = get_users(client, group["id"])
-        elif group["handle"] == "board":
-            board = get_users(client, group["id"])
+    # Slack内の全ユーザー情報を取得
+    # https://api.slack.com/methods/users.list
+    data = client.users_list()
+    # ユーザーIDをキーにした辞書に変換する
+    members = {m["id"]: m for m in data["members"]}
 
-    # u-からはじまるチャンネル一覧を取得
+    # employeesとboardユーザーグループのユーザーIDを取得
+    employees = get_userids_by_usergroup(client, "employees")
+    board = get_userids_by_usergroup(client, "board")
+
+    # u-NAME-boardチャンネル一覧を取得
     channels = get_u_private_channels(client)
 
-    print(employees)
-    print(board)
-    print(channels)
+    # print(employees)
+    # print(board)
+    # print(channels)
 
-    # チャンネルを作成する
-    #for member in bp_members:
-    #    create_channel(client, member, board_members, channels, args.dryrun)
+    # 全メンバーのチャンネルを作成する
+    for user_id in employees:
+        if user_id in board:
+            # boardメンバーは対象外
+            continue
+        # print(user_id)
+        member = members[user_id]
+        # 1メンバーのチャンネルを作成する
+        create_channel(client, member, board, channels, args.dryrun)
 
 
 if __name__ == '__main__':
