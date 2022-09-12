@@ -4,6 +4,7 @@ boardとの連絡チャンネルをアーカイブして作り直すスクリプ
 
 import argparse
 import os
+import random
 
 from slack_sdk import WebClient
 
@@ -13,6 +14,8 @@ def get_userids_by_usergroup(client: WebClient, handle: str) -> list[str] | None
 
     * https://api.slack.com/methods/usergroups.list
     * https://api.slack.com/methods/usergroups.users.list
+
+    OAuth Scope: usergroups:read
 
     handle: ユーザーグループのメンションに使用する文字列(employees, board等)
     """
@@ -49,7 +52,7 @@ def get_u_private_channels(client: WebClient) -> dict[str, str]:
 
 
 def create_channel(client: WebClient, member: dict, board: list[str],
-                   channels: dict[str, str], dryrun=True):
+                   channels: dict[str, str], parrot: str, dryrun=True):
     """チャンネルを作成する
 
     * https://api.slack.com/methods/conversations.archive
@@ -61,6 +64,7 @@ def create_channel(client: WebClient, member: dict, board: list[str],
     :param member: チャンネル作成対象のメンバー情報
     :param board: boardのユーザーID一覧
     :param channels: 既存のu-NAME-boardチャンネル名とIDの辞書
+    :param parrot: partyparrot emoji
     """
 
     # 名前を取得
@@ -113,7 +117,7 @@ def create_channel(client: WebClient, member: dict, board: list[str],
         msg = (
             f"このチャンネルは *{name}とboardの雑談ちゃんねる* です。"
             "役員と雑談したり、個人的なことを気軽に相談したりしてください "
-            ":party_parrot:\n"
+            ":{parrot}:\n"
             "詳しくはトピックに設定してあるリンクをクリックしてください :bow:"
         )
         client.chat_postMessage(channel=channel_id, text=msg)
@@ -128,6 +132,11 @@ def main():
     args = parser.parse_args()
 
     client = WebClient(token=os.environ['SLACK_API_TOKEN'])
+
+    # parrotのemojiリストを取得
+    # OAuth Scope: emoji:read
+    data = client.emoji_list(limit=1000)
+    parrots = [emoji for emoji in data["emoji"] if "parrot" in emoji]
 
     # Slack内の全ユーザー情報を取得
     # https://api.slack.com/methods/users.list
@@ -159,7 +168,8 @@ def main():
         # print(user_id)
         member = members[user_id]
         # 1メンバーのチャンネルを作成する
-        create_channel(client, member, board, channels, args.dryrun)
+        parrot = random.choice(parrots)
+        create_channel(client, member, board, channels, parrot, args.dryrun)
 
 
 if __name__ == '__main__':
