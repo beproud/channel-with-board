@@ -161,8 +161,7 @@ def main():
     # print(channels)
 
     # employees から board を除外する(チャンネル作らないので)
-    # employees_set = set(employees) - set(board)
-    employees_set = set(employees)
+    employees_set = set(employees) - set(board)
 
     # boardからtakanoryのidを除外する(チャンネル作成時に参加するので)
     for member in members.values():
