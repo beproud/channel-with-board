@@ -76,9 +76,6 @@ def create_channel(client: WebClient, member: dict, board: list[str],
     if "(" in name:
         name = name.split("(")[0]
 
-    if name != "923":
-        return
-
     # チャンネル名を作成
     simple_name = name.replace('-', '').replace('_', '')
     channel_name = f"u-{simple_name.lower()}-board"
