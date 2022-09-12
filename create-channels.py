@@ -52,7 +52,7 @@ def get_u_private_channels(client: WebClient) -> dict[str, str]:
 
 
 def create_channel(client: WebClient, member: dict, board: list[str],
-                   channels: dict[str, str], parrot: str, dryrun=True):
+                   channels: dict[str, str], parrot: str, dryrun=False):
     """チャンネルを作成する
 
     * https://api.slack.com/methods/conversations.archive
@@ -76,23 +76,23 @@ def create_channel(client: WebClient, member: dict, board: list[str],
     if "(" in name:
         name = name.split("(")[0]
 
+    if name != "923":
+        return
+
     # チャンネル名を作成
     simple_name = name.replace('-', '').replace('_', '')
     channel_name = f"u-{simple_name.lower()}-board"
-
-    # チャンネル名、トピック
-    topic = (
-        f"{name}とboardの雑談ちゃんねる "
-        "https://project.beproud.jp/redmine/projects/bpall/wiki/With-board"
-    )
 
     if channel_name in channels:
         if dryrun:
             # dryrunの場合はメッセージのみを出力する
             print(f"{channel_name} をアーカイブしました(dry run)")
         else:
-            # 既存のチャンネルをアーカイブする
-            client.conversations_archive(channels[channel_name])
+            # 既存のチャンネルをリネームしてからアーカイブする
+            archived = f"{channel_name}-archived"
+            client.conversations_rename(channel=channels[channel_name],
+                                        name=archived)
+            client.conversations_archive(channel=channels[channel_name])
             print(f"{channel_name} をアーカイブしました")
 
     if dryrun:
@@ -111,16 +111,24 @@ def create_channel(client: WebClient, member: dict, board: list[str],
 
         # topicを設定
         # https://api.slack.com/methods/conversations.setTopic
+        topic = (
+            f"{name}とboardの雑談ちゃんねる "
+            "https://project.beproud.jp/redmine/projects/bpall/wiki/With-board"
+        )
         client.conversations_setTopic(channel=channel_id, topic=topic)
 
         # メッセージを送信
         msg = (
             f"このチャンネルは *{name}とboardの雑談ちゃんねる* です。"
             "役員と雑談したり、個人的なことを気軽に相談したりしてください "
-            ":{parrot}:\n"
+            f":{parrot}:\n"
             "詳しくはトピックに設定してあるリンクをクリックしてください :bow:"
         )
-        client.chat_postMessage(channel=channel_id, text=msg)
+        # Scope: chat:write:bot
+        client.chat_postMessage(channel=channel_id,
+                                text=msg,
+                                icon_emoji=":takanory:",
+                                username="雑談ちゃんねる作るくん")
         print(f"{channel_name} を作成しました")
 
 
@@ -156,7 +164,8 @@ def main():
     # print(channels)
 
     # employees から board を除外する(チャンネル作らないので)
-    employees_set = set(employees) - set(board)
+    # employees_set = set(employees) - set(board)
+    employees_set = set(employees)
 
     # boardからtakanoryのidを除外する(チャンネル作成時に参加するので)
     for member in members.values():
