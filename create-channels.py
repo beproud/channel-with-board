@@ -82,37 +82,42 @@ def create_channel(client: WebClient, member: dict, board: list[str],
         "https://project.beproud.jp/redmine/projects/bpall/wiki/With-board"
     )
 
-    print(channel_name)
-    print(topic)
-    print(channels[channel_name])
-    
-    return
-
     if channel_name in channels:
-        print(f'チャンネル {channel_name} はすでに存在します')
-    else:
         if dryrun:
             # dryrunの場合はメッセージのみを出力する
-            print(f'{channel_name} を作成しました(dry run)')
+            print(f"{channel_name} をアーカイブしました(dry run)")
         else:
-            response = client.conversations_create(name=channel_name,
-                                                   is_private=True)
-            channel_id = response['channel']['id']
+            # 既存のチャンネルをアーカイブする
+            client.conversations_archive(channels[channel_name])
+            print(f"{channel_name} をアーカイブしました")
 
-            # メンバーとboardメンバーのIDリストを作成して追加
-            users = [member['id']]
-            for board in board_members:
-                if board['name'] != 'takanory':
-                    users.append(board['id'])
-            client.conversations_invite(channel=channel_id, users=users)
+    if dryrun:
+        # dryrunの場合はメッセージのみを出力する
+        print(f"{channel_name} を作成しました(dry run)")
+    else:
+        response = client.conversations_create(name=channel_name,
+                                               is_private=True)
+        channel_id = response["channel"]["id"]
 
-            # topicを設定
-            client.conversations_setTopic(channel=channel_id, topic=topic)
+        # メンバーとboardメンバーをチャンネルに追加
+        users = [member["id"]]
+        users += board
+        # https://api.slack.com/methods/conversations.invite
+        client.conversations_invite(channel=channel_id, users=users)
 
-            # メッセージを送信
-            msg = f'このチャンネルは *{name}とboardの雑談ちゃんねる* です。役員と雑談したり、個人的なことを気軽に相談したりしてください :party_parrot:\n詳しくはトピックに設定してあるリンクをクリックしてください :bow:'
-            client.chat_postMessage(channel=channel_id, text=msg)
-            print(f'{channel_name} を作成しました')
+        # topicを設定
+        # https://api.slack.com/methods/conversations.setTopic
+        client.conversations_setTopic(channel=channel_id, topic=topic)
+
+        # メッセージを送信
+        msg = (
+            f"このチャンネルは *{name}とboardの雑談ちゃんねる* です。"
+            "役員と雑談したり、個人的なことを気軽に相談したりしてください "
+            ":party_parrot:\n"
+            "詳しくはトピックに設定してあるリンクをクリックしてください :bow:"
+        )
+        client.chat_postMessage(channel=channel_id, text=msg)
+        print(f"{channel_name} を作成しました")
 
 
 def main():
@@ -141,11 +146,16 @@ def main():
     # print(board)
     # print(channels)
 
+    # employees から board を除外する(チャンネル作らないので)
+    employees_set = set(employees) - set(board)
+
+    # boardからtakanoryのidを除外する(チャンネル作成時に参加するので)
+    for member in members.values():
+        if member["profile"]["display_name"].startswith("takanory"):
+            board.remove(member["id"])
+
     # 全メンバーのチャンネルを作成する
-    for user_id in employees:
-        if user_id in board:
-            # boardメンバーは対象外
-            continue
+    for user_id in employees_set:
         # print(user_id)
         member = members[user_id]
         # 1メンバーのチャンネルを作成する
