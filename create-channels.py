@@ -8,17 +8,6 @@ import os
 from slack_sdk import WebClient
 
 
-# BPメンバーの一覧
-BP_MEMBERS = (
-    "shimizukawa tommy ae35 altnight tell-k cafistar ray monjudoh natsu"
-    "cactusman kk6 nakagami kyoka hydden aoki marippe wan kameko xiao"
-    "furi susumuis kashew mtb_beta nao_y fumi23 tsutomu furuta kai"
-    "konie hirayama hajimo masashinji imaxyz komo_fr ssh22 kemu yukie"
-    "nutty hayaosuzuki delhi09 chieko arty saito"
-)
-BOARD_MEMBERS = ('haru', 'takanory', '923', 'nana')
-
-
 def generate_bpmember_list(members):
     """
     Slackの全メンバーから、BPメンバーとボードの一覧を抜き出す
@@ -49,17 +38,30 @@ def generate_bpmember_list(members):
     return bp_members, board_members
 
 
-def get_private_channels(client):
-    """チャンネル一覧を取得
+def get_users(client, group_id: str) -> list[str]:
+    """指定されたユーザーグループのメンバー一覧を返す
+
+    * https://api.slack.com/methods/usergroups.users.list
+    """
+    data = client.usergroups_users_list(usergroup=group_id)
+    return data["users"]
+
+
+def get_u_private_channels(client) -> dict[str, str]:
+    """u-NAME-board 形式のprivateチャンネル一覧を取得
 
     * https://api.slack.com/methods/conversations.list
     """
-    res = client.conversations_list(limit=1000, types='private_channel')
     # チャンネル一覧を取得
-    chs = res['channels']
+    res = client.conversations_list(limit=1000, types="private_channel")
 
     # u- から始まるチャンネル名のみを返す
-    return {ch['name'] for ch in chs if ch['name'].startswith('u-')}
+    channels = {}
+    for channel in res["channels"]:
+        name = channel["name"]
+        if name.startswith("u-") and name.endswith("-board"):
+            channels[name] = channel["id"]
+    return channels
 
 
 def create_channel(client, member, board_members, channels, dryrun=False):
@@ -113,7 +115,6 @@ def create_channel(client, member, board_members, channels, dryrun=False):
             client.chat_postMessage(channel=channel_id, text=msg)
             print(f'{channel_name} を作成しました')
 
-
 def main():
     # --dryrun引数に対応
     parser = argparse.ArgumentParser(
@@ -123,16 +124,21 @@ def main():
 
     client = WebClient(token=os.environ['SLACK_API_TOKEN'])
 
-    # メンバー一覧を取得
-    # https://api.slack.com/methods/users.list
-    response = client.users_list()
-    bp_members, board_members = generate_bpmember_list(response['members'])
-    for member in bp_members:
-        print(member["name"])
-    #print(board_members)
+    # ユーザーグループの一覧を取得
+    # https://api.slack.com/methods/usergroups.list
+    groups = client.usergroups_list()
+    for group in groups["usergroups"]:
+        if group["handle"] == "employees":
+            employees = get_users(client, group["id"])
+        elif group["handle"] == "board":
+            board = get_users(client, group["id"])
 
-    # チャンネル一覧を取得
-    #channels = get_private_channels(client)
+    # u-からはじまるチャンネル一覧を取得
+    channels = get_u_private_channels(client)
+
+    print(employees)
+    print(board)
+    print(channels)
 
     # チャンネルを作成する
     #for member in bp_members:
